@@ -25,6 +25,7 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
+#include <linux/tcp.h>
 #include <linux/inet.h>
 #include <linux/sysctl.h>
 #include <linux/version.h>
@@ -32,6 +33,7 @@
 static unsigned int min_port = 0;
 static unsigned int max_port = 65535;
 static unsigned int sysctl_udp_port_connection = 0;
+static unsigned int sysctl_tcp_port_connection = 0;
 static struct ctl_table_header *ctl_header = NULL;
 
 static struct ctl_table port_conn_table[] = {
@@ -44,7 +46,15 @@ static struct ctl_table port_conn_table[] = {
 		.extra1		= &min_port,
 		.extra2		= &max_port,
 	},
-
+	{
+		.procname	= "tcp_port_connection",
+		.data		= &sysctl_tcp_port_connection,
+		.maxlen		= sizeof(sysctl_tcp_port_connection),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &min_port,
+		.extra2		= &max_port,
+	},
 	{
 	}
 };
@@ -63,6 +73,7 @@ unsigned int __port_connection_hookfn(unsigned int hooknum,
 {
 	struct iphdr *iph;
 	struct udphdr *udph;
+	struct tcphdr *tcph;
 	iph = ip_hdr(skb);
 
 	/*
@@ -73,6 +84,12 @@ unsigned int __port_connection_hookfn(unsigned int hooknum,
 		udph = udp_hdr(skb);
 		if (udph->dest == ntohs(sysctl_udp_port_connection)) {
 			printk(KERN_INFO"UDP : pid = %d, comm = %s\n",
+				current->pid, current->comm);
+		}
+	} else if (iph->protocol == IPPROTO_TCP) {
+		tcph = tcp_hdr(skb);
+		if (tcph->dest == ntohs(sysctl_tcp_port_connection)) {
+			printk(KERN_INFO"TCP : pid = %d, comm = %s\n",
 				current->pid, current->comm);
 		}
 	}
